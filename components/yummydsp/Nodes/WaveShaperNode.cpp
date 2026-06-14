@@ -2,7 +2,7 @@
 
 WaveShaperNode::WaveShaperNode() { ; }
 
-WaveShaperNode::WaveShaperNode(int sampleRate, int channelCount) { this->begin(fs, channelCount); }
+WaveShaperNode::WaveShaperNode(int sampleRate, int channelCount) { this->begin(sampleRate, channelCount); }
 
 WaveShaperNode::~WaveShaperNode() { if(interpolator) { delete interpolator; } }
 
