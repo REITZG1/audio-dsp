@@ -19,6 +19,7 @@
 #include "settings.h"
 #include "global_vars.h"
 #include "serial_cmd.h"
+#include "web_server.h"
 
 Preferences preferences;
 
@@ -107,6 +108,16 @@ void setup() {
 
   xTaskCreatePinnedToCore(serialCommTask, "serialCommTask", 4096, NULL, 6, NULL, 0);
   delay(500);
+
+  // Initialize WiFi (ESP32-C6 via SDIO) and web server
+  Serial.println("Initializing WiFi via ESP32-C6 co-processor...");
+  if (initWiFi() == ESP_OK) {
+    if (startWebServer() == ESP_OK) {
+      Serial.println("Web server started! Open http://audiostreamer-p4.local or check router for IP.");
+    }
+  } else {
+    Serial.println("WiFi init failed (C6 may not be ready). Continuing without network.");
+  }
 }
 
 void loop() {
