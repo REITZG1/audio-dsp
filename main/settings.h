@@ -9,6 +9,17 @@
 #define I2S_MODE_RX     8
 #endif
 
+// Legacy I2S constants that don't exist in new driver
+#ifndef I2S_BITS_PER_SAMPLE_32BIT
+#define I2S_BITS_PER_SAMPLE_32BIT ((i2s_bits_per_sample_t)32)
+#endif
+#ifndef I2S_COMM_FORMAT_I2S
+#define I2S_COMM_FORMAT_I2S ((i2s_comm_format_t)1)
+#endif
+#ifndef I2S_COMM_FORMAT_I2S_MSB
+#define I2S_COMM_FORMAT_I2S_MSB ((i2s_comm_format_t)2)
+#endif
+
 const String VERSION = "1.0.0.1 2025/06/14 P4";
 #define CONFIG_TAG 124
 
