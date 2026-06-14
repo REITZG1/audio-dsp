@@ -39,7 +39,7 @@ void AudioDriver::setI2sPort(i2s_port_t port) {
 int AudioDriver::setPins(int bitClkPin, int lrClkPin, int dataOutPin, int dataInPin, int enablePin) {
 #if CONFIG_IDF_TARGET_ESP32P4
   // P4 uses i2s_std_config for pin mapping
-  std_cfg.clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(fs);
+  std_cfg.clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG((uint32_t)fs);
   std_cfg.slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO);
   std_cfg.gpio_cfg = {
     .mclk = I2S_GPIO_UNUSED,

@@ -53,7 +53,7 @@ public:
   int setPins(int bitClkPin = 5, int lrClkPin = 6, int dataOutPin = 7, int dataInPin = 4, int enablePin = 8);
   void setI2sPort(i2s_port_t i2s_port);
 
-  int setFormat(int fs = 48000, int channelCount = 2,
+  int setFormat(int fs = 48000, int chCount = 2,
                 i2s_bits_per_sample_t bitsPerSample = I2S_BITS_PER_SAMPLE_32BIT,
                 i2s_comm_format_t format = I2S_COMM_FORMAT_I2S,
                 int alignment = CODEC_I2S_ALIGN,
@@ -61,7 +61,7 @@ public:
                 int mode = I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_TX);
 
   bool start();
-  int setup(int fs = 48000, int channelCount = 2,
+  int setup(int fs = 48000, int chCount = 2,
             int bitClkPin = 5, int lrClkPin = 6,
             int dataOutPin = 7, int dataInPin = 4,
             int enablePin = 8, i2s_port_t i2sPort = I2S_NUM_0);
@@ -83,20 +83,20 @@ public:
 
   inline float readSample(int n, int channel) {
     if (channel == 0)
-      return int2Float(i2sReadBuffer[channelCount * n + channel] << lshift);
+      return int2Float(i2sReadBuffer[chCount * n + channel] << lshift);
     else
-      return int2Float(i2sReadBuffer[channelCount * n + channel]);
+      return int2Float(i2sReadBuffer[chCount * n + channel]);
   }
 
   inline void writeSample(float sample, int n, int channel) {
-    i2sWriteBuffer[channelCount * n + channel] = float2Int(sample);
+    i2sWriteBuffer[chCount * n + channel] = float2Int(sample);
   }
 
   inline void writeStereoSample(float sampleR, float sampleL, int n) {
     int32_t R = float2Int(sampleR);
     int32_t L = float2Int(sampleL);
-    i2sWriteBuffer[channelCount * n + 0] = L >> lshift;
-    i2sWriteBuffer[channelCount * n + 1] = R;
+    i2sWriteBuffer[chCount * n + 0] = L >> lshift;
+    i2sWriteBuffer[chCount * n + 1] = R;
   }
 
   // Raw (no scale)
@@ -111,24 +111,24 @@ public:
 
   inline float readRawSample(int n, int channel) {
     if (channel == 0)
-      return int2Raw(i2sReadBuffer[channelCount * n + channel] << lshift);
+      return int2Raw(i2sReadBuffer[chCount * n + channel] << lshift);
     else
-      return int2Raw(i2sReadBuffer[channelCount * n + channel]);
+      return int2Raw(i2sReadBuffer[chCount * n + channel]);
   }
 
   inline void writeRawStereoSample(float sampleR, float sampleL, int n) {
     int32_t R = raw2Int(sampleR);
     int32_t L = raw2Int(sampleL);
-    i2sWriteBuffer[channelCount * n + 0] = L >> lshift;
-    i2sWriteBuffer[channelCount * n + 1] = R;
+    i2sWriteBuffer[chCount * n + 0] = L >> lshift;
+    i2sWriteBuffer[chCount * n + 1] = R;
   }
 
   inline int readIntSample(int n, int channel) {
-    return i2sReadBuffer[channelCount * n + channel];
+    return i2sReadBuffer[chCount * n + channel];
   }
 
   inline void writeIntSample(int sample, int n, int channel) {
-    i2sWriteBuffer[channelCount * n + channel] = sample;
+    i2sWriteBuffer[chCount * n + channel] = sample;
   }
 
 protected:
