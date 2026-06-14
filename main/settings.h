@@ -100,7 +100,7 @@ const int ALL_NUM_BANDS = MAX_NUM_BANDS + 2;
 const int N_BAND = 10, N_FREQ = 11;
 
 // 04 HD 3 - Filter frequency table
-int FILTER_FREQ[N_BAND][N_FREQ] = {
+const int FILTER_FREQ[N_BAND][N_FREQ] = {
   {20, 18000, 0, 0, 0, 0, 0, 0, 0, 0, 0},
   {20, 6000, 18000, 0, 0, 0, 0, 0, 0, 0, 0},
   {20, 200, 3000, 18000, 0, 0, 0, 0, 0, 0, 0},
