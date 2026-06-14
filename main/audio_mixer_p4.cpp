@@ -5,7 +5,7 @@
   Author: Adapted from junon10/esp32-multiband-dsp
   License: GPLv3
   Board: ESP32-P4-DevKit or custom
-  Framework: Arduino (ESP32 core v3.x+) or PlatformIO
+  Framework: ESP-IDF with Arduino component
 */
 
 #include <Arduino.h>
@@ -112,3 +112,5 @@ void setup() {
 void loop() {
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
+
+
