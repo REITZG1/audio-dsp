@@ -40,7 +40,7 @@ jobs:
           cp build/audio_mixer_p4.bin firmware/release/
           cp build/bootloader/bootloader.bin firmware/release/ 2>/dev/null || true
           cp build/partition_table/partition-table.bin firmware/release/ 2>/dev/null || true
-          esptool.py merge_bin \
+          esptool.py --chip esp32p4 merge_bin \
             --output firmware/release/audio_mixer_p4_merged.bin \
             --flash_mode qio --flash_size 16MB \
             0x0 firmware/release/bootloader.bin \
