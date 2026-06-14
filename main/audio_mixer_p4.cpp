@@ -17,13 +17,18 @@
 
 #include "DualCompressor.h"
 #include "settings.h"
-#include "global_vars.h"
 #include "serial_cmd.h"
+#include "global_vars.h"
 
 Preferences preferences;
 
 void setup() {
-  esp_task_wdt_init(WDT_TIMEOUT, true);
+  esp_task_wdt_config_t wdt_config = {
+    .timeout_ms = (uint32_t)WDT_TIMEOUT * 1000,
+    .idle_core_mask = 0,
+    .trigger_panic = true
+  };
+  esp_task_wdt_init(&wdt_config);
   esp_task_wdt_add(NULL);
 
   Serial.begin(115200);
