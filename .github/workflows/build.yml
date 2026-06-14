@@ -35,12 +35,12 @@ jobs:
 
       - name: Package firmware
         run: |
+          . /opt/esp/idf/export.sh
           mkdir -p firmware/release
           cp build/audio_mixer_p4.bin firmware/release/
           cp build/bootloader/bootloader.bin firmware/release/ 2>/dev/null || true
           cp build/partition_table/partition-table.bin firmware/release/ 2>/dev/null || true
-          pip install esptool
-          python -m esptool merge_bin \
+          esptool.py merge_bin \
             --output firmware/release/audio_mixer_p4_merged.bin \
             --flash_mode qio --flash_size 16MB \
             0x0 firmware/release/bootloader.bin \
