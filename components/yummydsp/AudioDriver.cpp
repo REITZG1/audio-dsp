@@ -8,7 +8,7 @@
 #include "AudioDriver.h"
 
 #if CONFIG_IDF_TARGET_ESP32P4
-#include "i2s_common.h"
+#include "driver/i2s_common.h"
 #endif
 
 const float AudioDriver::ScaleFloat2Int = 2147483647.0f;
@@ -87,7 +87,7 @@ int AudioDriver::setFormat(int fs, int channelCount, i2s_bits_per_sample_t bitsP
   i2s_slot_mode_t slot_mode = (channelCount > 1) ? I2S_SLOT_MODE_STEREO : I2S_SLOT_MODE_MONO;
   std_cfg.slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG((i2s_data_bit_width_t)bitsPerSample, slot_mode);
 
-  I2S_COMM_FORMAT_I2S; // Philips format is default for STD mode
+  // Philips format is default for STD mode
 #else
   i2s_config = {
     .mode = (i2s_mode_t)mode,
