@@ -17,8 +17,8 @@
 
 #include "DualCompressor.h"
 #include "settings.h"
-#include "serial_cmd.h"
 #include "global_vars.h"
+#include "serial_cmd.h"
 
 Preferences preferences;
 

@@ -1,5 +1,8 @@
 #pragma once
 #include <Arduino.h>
+
+// Forward declaration (defined in serial_cmd.h)
+void commandInterpreter();
 #include <YummyDSP.h>
 #include <AudioDriver.h>
 #include <ArduinoJson.h>
