@@ -31,12 +31,13 @@ jobs:
         run: |
           . /opt/esp/idf/export.sh
           idf.py set-target esp32p4
-          # Patch esp-modbus strncpy warning (managed component)
-          sed -i 's/strncpy(temp_str, \*dns_name, strlen(\*dns_name));/snprintf(temp_str, sizeof(temp_str), "%s", *dns_name);/' \
+          # Patch esp-modbus strncpy warnings (managed component)
+          sed -i 's/strncpy(temp_str, \*dns_name, strlen(\*dns_name));/strlcpy(temp_str, *dns_name, sizeof(temp_str));/' \
             managed_components/espressif__esp-modbus/modbus/mb_ports/tcp/port_tcp_utils.c 2>/dev/null || true
-          # Also fix the second strncpy in the same function
-          sed -i 's/strncpy(dns_name, \*dns_name, strlen(\*dns_name));/snprintf(dns_name, MB_MDNS_STR_MAX_LENGTH, "%s", *dns_name);/' \
+          sed -i 's/strncpy(dns_name, \*dns_name, strlen(\*dns_name));/strlcpy(dns_name, *dns_name, MB_MDNS_STR_MAX_LENGTH);/' \
             managed_components/espressif__esp-modbus/modbus/mb_ports/tcp/port_tcp_utils.c 2>/dev/null || true
+          # Also check for other strncpy in the file
+          grep -n "strncpy" managed_components/espressif__esp-modbus/modbus/mb_ports/tcp/port_tcp_utils.c 2>/dev/null; true
           idf.py build
 
       - name: Package firmware
