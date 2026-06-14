@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: espressif/idf:release-v5.4
+    container: espressif/idf:release-v5.5
     defaults:
       run:
         shell: bash
@@ -19,7 +19,7 @@ jobs:
       - name: Install arduino-esp32 component
         run: |
           mkdir -p components
-          git clone --depth 1 -b idf-release/v5.4 \
+          git clone --depth 1 -b idf-release/v5.5 \
             https://github.com/espressif/arduino-esp32.git components/arduino
 
       - name: Install ArduinoJson component
