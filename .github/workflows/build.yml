@@ -9,41 +9,43 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: espressif/idf:release-v5.4
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install PlatformIO
-        run: pip install platformio esptool
-
-      - name: Build
+      - name: Install arduino-esp32 component
         run: |
-          pio run -e esp32-p4 2>&1 || \
-          (echo "PlatformIO P4 not available, using ESP-IDF docker..." && \
-           docker run --rm -v $PWD:/project -w /project \
-             espressif/idf:release-v5.4 \
-             /bin/bash -c "idf.py set-target esp32p4 && idf.py build")
+          mkdir -p components
+          git clone --depth 1 -b idf-release/v5.4 \
+            https://github.com/espressif/arduino-esp32.git components/arduino
 
-      - name: Collect artifacts
+      - name: Install ArduinoJson component
+        run: |
+          git clone --depth 1 -b 7.x \
+            https://github.com/bblanchon/ArduinoJson.git components/arduinojson
+
+      - name: Build with idf.py
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py set-target esp32p4
+          idf.py build
+
+      - name: Package firmware
         run: |
           mkdir -p firmware/release
-          if [ -f .pio/build/esp32-p4/firmware.bin ]; then
-            cp .pio/build/esp32-p4/firmware.bin firmware/release/
-            cp .pio/build/esp32-p4/partitions.bin firmware/release/ 2>/dev/null || true
-            cp .pio/build/esp32-p4/bootloader.bin firmware/release/ 2>/dev/null || true
-            python -m esptool merge_bin \
-              --output firmware/release/audio_mixer_p4_merged.bin \
-              --flash_mode qio --flash_size 16MB \
-              0x1000 .pio/build/esp32-p4/bootloader.bin \
-              0x8000 .pio/build/esp32-p4/partitions.bin \
-              0x10000 .pio/build/esp32-p4/firmware.bin 2>/dev/null || true
-          elif [ -f build/audio_mixer_p4.bin ]; then
-            cp build/*.bin firmware/release/
-          fi
+          cp build/audio_mixer_p4.bin firmware/release/
+          cp build/bootloader/bootloader.bin firmware/release/ 2>/dev/null || true
+          cp build/partition_table/partition-table.bin firmware/release/ 2>/dev/null || true
+          pip install esptool
+          python -m esptool merge_bin \
+            --output firmware/release/audio_mixer_p4_merged.bin \
+            --flash_mode qio --flash_size 16MB \
+            0x0 firmware/release/bootloader.bin \
+            0x8000 firmware/release/partition-table.bin \
+            0x10000 firmware/release/audio_mixer_p4.bin
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -55,13 +57,14 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: esp32-p4-audio-mixer-firmware
+          path: firmware/
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*.bin
-          prerelease: true
-          generate_release_notes: true
+          files: firmware/*.bin
