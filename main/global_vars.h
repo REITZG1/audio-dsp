@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 
 // Forward declaration (defined in serial_cmd.h)
 void commandInterpreter();
