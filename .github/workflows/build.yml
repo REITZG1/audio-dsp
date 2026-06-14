@@ -37,7 +37,7 @@ jobs:
           sed -i 's/strncpy(dns_name, \*dns_name, strlen(\*dns_name));/strlcpy(dns_name, *dns_name, MB_MDNS_STR_MAX_LENGTH);/' \
             managed_components/espressif__esp-modbus/modbus/mb_ports/tcp/port_tcp_utils.c 2>/dev/null || true
           # Also check for other strncpy in the file
-          grep -n "strncpy" managed_components/espressif__esp-modbus/modbus/mb_ports/tcp/port_tcp_utils.c 2>/dev/null; true
+          grep -n "strncpy" managed_components/espressif__esp-modbus/modbus/mb_ports/tcp/port_tcp_utils.c 2>/dev/null || true
           idf.py build
 
       - name: Package firmware
