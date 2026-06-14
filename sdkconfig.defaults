@@ -32,9 +32,8 @@ CONFIG_ESP_HOSTED_SDIO_BUS_WIDTH=4
 CONFIG_ESP_HOSTED_SDIO_TX_Q_SIZE=60
 CONFIG_ESP_HOSTED_SDIO_RX_Q_SIZE=60
 
-# Disable watchdogs for testing
+# Interrupt watchdog off; Task WDT must be on (Arduino calls it unconditionally)
 CONFIG_ESP_INT_WDT=n
-CONFIG_ESP_TASK_WDT_EN=n
 
 # NVS
 CONFIG_NVS_ENCRYPTION=n
