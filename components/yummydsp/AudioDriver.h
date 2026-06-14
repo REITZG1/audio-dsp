@@ -15,6 +15,20 @@
 // ESP32-P4 new I2S driver
 #include "driver/i2s_std.h"
 #include "hal/i2s_types.h"
+// Compatibility defines for new I2S driver (types removed in IDF 5.x)
+typedef int i2s_bits_per_sample_t;
+typedef int i2s_comm_format_t;
+#ifndef I2S_BITS_PER_SAMPLE_32BIT
+#define I2S_BITS_PER_SAMPLE_32BIT ((i2s_bits_per_sample_t)32)
+#endif
+#ifndef I2S_COMM_FORMAT_I2S
+#define I2S_COMM_FORMAT_I2S ((i2s_comm_format_t)1)
+#endif
+#ifndef I2S_MODE_MASTER
+#define I2S_MODE_MASTER 1
+#define I2S_MODE_TX     4
+#define I2S_MODE_RX     8
+#endif
 #else
 // Legacy ESP32 I2S driver
 #include "driver/i2s.h"
