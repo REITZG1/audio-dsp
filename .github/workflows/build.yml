@@ -1,0 +1,67 @@
+name: Build Firmware
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: pip install platformio esptool
+
+      - name: Build
+        run: |
+          pio run -e esp32-p4 2>&1 || \
+          (echo "PlatformIO P4 not available, using ESP-IDF docker..." && \
+           docker run --rm -v $PWD:/project -w /project \
+             espressif/idf:release-v5.4 \
+             /bin/bash -c "idf.py set-target esp32p4 && idf.py build")
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p firmware/release
+          if [ -f .pio/build/esp32-p4/firmware.bin ]; then
+            cp .pio/build/esp32-p4/firmware.bin firmware/release/
+            cp .pio/build/esp32-p4/partitions.bin firmware/release/ 2>/dev/null || true
+            cp .pio/build/esp32-p4/bootloader.bin firmware/release/ 2>/dev/null || true
+            python -m esptool merge_bin \
+              --output firmware/release/audio_mixer_p4_merged.bin \
+              --flash_mode qio --flash_size 16MB \
+              0x1000 .pio/build/esp32-p4/bootloader.bin \
+              0x8000 .pio/build/esp32-p4/partitions.bin \
+              0x10000 .pio/build/esp32-p4/firmware.bin 2>/dev/null || true
+          elif [ -f build/audio_mixer_p4.bin ]; then
+            cp build/*.bin firmware/release/
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-p4-audio-mixer-firmware
+          path: firmware/release/*.bin
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.bin
+          prerelease: true
+          generate_release_notes: true
