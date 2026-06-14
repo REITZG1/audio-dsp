@@ -22,7 +22,7 @@
 
 Preferences preferences;
 
-extern "C" void setup() {
+void setup() {
   esp_task_wdt_init(WDT_TIMEOUT, true);
   esp_task_wdt_add(NULL);
 
@@ -104,6 +104,6 @@ extern "C" void setup() {
   delay(500);
 }
 
-extern "C" void loop() {
+void loop() {
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 }

@@ -1,6 +1,14 @@
 #pragma once
 #include <Arduino.h>
 
+// I2S mode compatibility for ESP32-P4 (new I2S driver removed these)
+#ifndef I2S_MODE_MASTER
+#define I2S_MODE_MASTER 1
+#define I2S_MODE_SLAVE  2
+#define I2S_MODE_TX     4
+#define I2S_MODE_RX     8
+#endif
+
 const String VERSION = "1.0.0.1 2025/06/14 P4";
 #define CONFIG_TAG 124
 
