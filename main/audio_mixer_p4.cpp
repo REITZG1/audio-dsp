@@ -66,37 +66,30 @@ void setup() {
   Serial.println();
   Serial.println("I2S Audio Config:");
   Serial.print("  Sample Rate: "); Serial.print(SampleRateFreq); Serial.println(" Hz");
-  Serial.print("  Channels: "); Serial.println(channelCount);
-  Serial.print("  I2S BCK: "); Serial.println(I2S_BCK_PIN);
-  Serial.print("  I2S LRCLK: "); Serial.println(I2S_LRCLK_PIN);
-  Serial.print("  I2S DOUT: "); Serial.println(I2S_DOUT_PIN);
-  Serial.print("  I2S DIN: "); Serial.println(I2S_DIN_PIN);
+  Serial.print("  Input Channels: "); Serial.println(NUM_IN_CH);
+  Serial.print("  Output Channels: "); Serial.println(NUM_OUT_CH);
 
-  i2sCodec.setI2sPort(I2S_NUM_0);
+  Serial.println("\n--- I2S0 (PCM1808 #1 + PCM5102 #1) ---");
+  Serial.printf("  BCK=%d LRCK=%d DOUT=%d DIN=%d\n", I2S_BCK_PIN, I2S_LRCLK_PIN, I2S_DOUT_PIN, I2S_DIN_PIN);
 
-  int err = i2sCodec.setFormat(
-    SampleRateFreq,
-    channelCount,
-    I2S_BITS_PER_SAMPLE_32BIT,
-    I2S_COMM_FORMAT_I2S,
-    CODEC_I2S_ALIGN,
-    384,
-    I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_TX
-  );
+  int err = 0;
+  i2sCodec0.setI2sPort(I2S_NUM_0);
+  err += i2sCodec0.setFormat(SampleRateFreq, channelCount);
+  err += i2sCodec0.setPins(I2S_BCK_PIN, I2S_LRCLK_PIN, I2S_DOUT_PIN, I2S_DIN_PIN, CODEC_ENABLE_PIN, I2S0_MCLK_PIN);
+  err += i2sCodec0.start();
 
-  err += i2sCodec.setPins(
-    I2S_BCK_PIN, I2S_LRCLK_PIN,
-    I2S_DOUT_PIN, I2S_DIN_PIN,
-    CODEC_ENABLE_PIN
-  );
+  Serial.println("\n--- I2S1 (PCM1808 #2 + PCM5102 #2) ---");
+  Serial.printf("  BCK=%d LRCK=%d DOUT=%d DIN=%d\n", I2S1_BCK_PIN, I2S1_LRCLK_PIN, I2S1_DOUT_PIN, I2S1_DIN_PIN);
 
-  err += i2sCodec.start();
-  i2sCodec.mute(false);
+  i2sCodec1.setI2sPort(I2S_NUM_1);
+  err += i2sCodec1.setFormat(SampleRateFreq, channelCount);
+  err += i2sCodec1.setPins(I2S1_BCK_PIN, I2S1_LRCLK_PIN, I2S1_DOUT_PIN, I2S1_DIN_PIN, I2S1_ENABLE_PIN, I2S1_MCLK_PIN);
+  err += i2sCodec1.start();
 
   if (err == 0) {
-    Serial.println("I2S started successfully!");
+    Serial.println("\nBoth I2S ports started successfully!");
   } else {
-    Serial.print("I2S error code: "); Serial.println(err);
+    Serial.print("\nI2S error code: "); Serial.println(err);
   }
 
   Serial.println();

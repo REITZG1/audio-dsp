@@ -50,7 +50,7 @@ public:
   AudioDriver();
   ~AudioDriver();
 
-  int setPins(int bitClkPin = 5, int lrClkPin = 6, int dataOutPin = 7, int dataInPin = 4, int enablePin = 8);
+  int setPins(int bitClkPin = 5, int lrClkPin = 6, int dataOutPin = 7, int dataInPin = 4, int enablePin = 8, int mclkPin = -1);
   void setI2sPort(i2s_port_t i2s_port);
 
   int setFormat(int fs = 48000, int chCount = 2,
@@ -64,7 +64,7 @@ public:
   int setup(int fs = 48000, int chCount = 2,
             int bitClkPin = 5, int lrClkPin = 6,
             int dataOutPin = 7, int dataInPin = 4,
-            int enablePin = 8, i2s_port_t i2sPort = I2S_NUM_0);
+            int enablePin = 8, int mclkPin = -1, i2s_port_t i2sPort = I2S_NUM_0);
 
   bool mute(bool powerDown);
   int readBlock();
@@ -135,6 +135,7 @@ protected:
   int fs;
   int chCount;
   int enablePin;
+  int mclkPin;
   int lshift = 8;
   i2s_port_t i2sPort;
   int i2sBufferSize;

@@ -35,7 +35,8 @@ float Post_Emphasis_Linear[MAX_NUM_BANDS];
 float Clipper_Linear_p = 0.0f;
 float Clipper_Linear_n = 0.0f;
 
-AudioDriver i2sCodec;
+AudioDriver i2sCodec0;
+AudioDriver i2sCodec1;
 DualCompressor comp_st[MAX_NUM_BANDS];
 DualCompressor limiter_st;
 YummyDSP dspBAND[MAX_NUM_BANDS], dspDelay, dspFmFilter;
@@ -53,6 +54,20 @@ float VolCompensationLinear = 1.0f;
 float Band_R[MAX_NUM_BANDS];
 float Band_L[MAX_NUM_BANDS];
 float inputSampleR = 0, inputSampleL = 0, outputSampleR = 0, outputSampleL = 0;
+
+// 4-in / 4-out matrix mixer
+float InTrim[NUM_IN_CH] = {0, 0, 0, 0};
+bool InMute[NUM_IN_CH] = {false, false, false, false};
+float InTrimLinear[NUM_IN_CH] = {1.0f, 1.0f, 1.0f, 1.0f};
+float RouteGain[NUM_OUT_CH][NUM_IN_CH] = {
+  {1.0f, 0.0f, 0.0f, 0.0f},
+  {0.0f, 1.0f, 0.0f, 0.0f},
+  {0.0f, 0.0f, 1.0f, 0.0f},
+  {0.0f, 0.0f, 0.0f, 1.0f}
+};
+float OutLvl[NUM_OUT_CH] = {0, 0, 0, 0};
+bool OutMute[NUM_OUT_CH] = {false, false, false, false};
+float OutLvlLinear[NUM_OUT_CH] = {1.0f, 1.0f, 1.0f, 1.0f};
 
 void changeEqualization() {
   float G = 0.0, lastG = 0.0;
@@ -108,6 +123,11 @@ void commitConfig() {
   ECHO.setMix(Echo, true);
   changeEqualization();
   InputLevelLinear = decibel_2_linear(InputLevel);
+
+  for (int ch = 0; ch < NUM_IN_CH; ch++) {
+    InTrimLinear[ch] = decibel_2_linear(InTrim[ch]);
+  }
+
   float P = Balance / 100.0f;
   if (Balance < 50.0f) {
     BalanceLinearL = Balance * 0.02f;
@@ -122,6 +142,11 @@ void commitConfig() {
   setAudioVolume();
   OutputLevelLinearL *= BalanceLinearL;
   OutputLevelLinearR *= BalanceLinearR;
+
+  for (int ch = 0; ch < NUM_OUT_CH; ch++) {
+    OutLvlLinear[ch] = decibel_2_linear(OutLvl[ch]);
+  }
+
   Clipper_Linear_p = decibel_2_linear(Clipper + 10.0f) * COMP_LIMIT;
   Clipper_Linear_n = Clipper_Linear_p * -1.0f;
   VolCompensationLinear = decibel_2_linear(DEFAULT_VOL_COMPENSATION) + 1.0f;
@@ -230,6 +255,17 @@ void loadDefaultConfig() {
     AttackTime[i] = DEFAULT_ATTACK_TIME;
     ReleaseTime[i] = DEFAULT_RELEASE_TIME;
   }
+  for (int ch = 0; ch < NUM_IN_CH; ch++) {
+    InTrim[ch] = 0.0f;
+    InMute[ch] = false;
+  }
+  for (int o = 0; o < NUM_OUT_CH; o++) {
+    OutLvl[o] = 0.0f;
+    OutMute[o] = false;
+    for (int i = 0; i < NUM_IN_CH; i++) {
+      RouteGain[o][i] = (i == o) ? 1.0f : 0.0f;
+    }
+  }
 }
 
 void readConfig() {
@@ -239,7 +275,7 @@ void readConfig() {
     return;
   }
 
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(4096);
   DeserializationError error = deserializeJson(doc, strJson);
   if (error) {
     Serial.println("JSON parse error, using defaults");
@@ -270,10 +306,23 @@ void readConfig() {
     AttackTime[i] = doc["Atk"][i] | DEFAULT_ATTACK_TIME;
     ReleaseTime[i] = doc["Rls"][i] | DEFAULT_RELEASE_TIME;
   }
+
+  // Matrix mixer params
+  for (int ch = 0; ch < NUM_IN_CH; ch++) {
+    InTrim[ch] = doc["InTrim"][ch] | 0.0f;
+    InMute[ch] = doc["InMute"][ch] | false;
+  }
+  for (int o = 0; o < NUM_OUT_CH; o++) {
+    OutLvl[o] = doc["OutLvl"][o] | 0.0f;
+    OutMute[o] = doc["OutMute"][o] | false;
+    for (int i = 0; i < NUM_IN_CH; i++) {
+      RouteGain[o][i] = doc["Route"][o][i] | ((i == o) ? 1.0f : 0.0f);
+    }
+  }
 }
 
 bool saveConfig() {
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(4096);
 
   doc["Il"] = InputLevel;
   doc["Ol"] = OutputLevel;
@@ -305,6 +354,29 @@ bool saveConfig() {
     Rls.add(ReleaseTime[i]);
   }
 
+  // Matrix mixer params
+  JsonArray inTrimArr = doc.createNestedArray("InTrim");
+  JsonArray inMuteArr = doc.createNestedArray("InMute");
+  for (int ch = 0; ch < NUM_IN_CH; ch++) {
+    inTrimArr.add(InTrim[ch]);
+    inMuteArr.add(InMute[ch]);
+  }
+
+  JsonArray outLvlArr = doc.createNestedArray("OutLvl");
+  JsonArray outMuteArr = doc.createNestedArray("OutMute");
+  for (int o = 0; o < NUM_OUT_CH; o++) {
+    outLvlArr.add(OutLvl[o]);
+    outMuteArr.add(OutMute[o]);
+  }
+
+  JsonArray routeArr = doc.createNestedArray("Route");
+  for (int o = 0; o < NUM_OUT_CH; o++) {
+    JsonArray row = routeArr.createNestedArray();
+    for (int i = 0; i < NUM_IN_CH; i++) {
+      row.add(RouteGain[o][i]);
+    }
+  }
+
   String output;
   serializeJson(doc, output);
 
@@ -321,19 +393,41 @@ void audioTask(void *pvParameters) {
   esp_task_wdt_add(NULL);
 
   while (true) {
-    i2sCodec.readBlock();
+    // Read both I2S ports
+    i2sCodec0.readBlock();
+    i2sCodec1.readBlock();
 
     for (int i = 0; i < AudioDriver::BufferSize; i++) {
+      // --- Read 4 inputs ---
+      float in[4];
+      in[0] = i2sCodec0.readSample(i, 0);  // PCM1808 #1 L
+      in[1] = i2sCodec0.readSample(i, 1);  // PCM1808 #1 R
+      in[2] = i2sCodec1.readSample(i, 0);  // PCM1808 #2 L
+      in[3] = i2sCodec1.readSample(i, 1);  // PCM1808 #2 R
+
+      // --- Per-input processing ---
+      for (int ch = 0; ch < NUM_IN_CH; ch++) {
+        in[ch] *= InTrimLinear[ch];
+        if (InMute[ch]) in[ch] = 0.0f;
+        in[ch] *= InputLevelLinear;
+      }
+
+      // --- Matrix mixer: sum into 4 output busses ---
+      float out[4] = {0, 0, 0, 0};
+      for (int o = 0; o < NUM_OUT_CH; o++) {
+        for (int ch = 0; ch < NUM_IN_CH; ch++) {
+          out[o] += in[ch] * RouteGain[o][ch];
+        }
+      }
+
+      // --- Outputs 0,1: full multiband DSP (existing chain) ---
       outputSampleR = 0.0f;
       outputSampleL = 0.0f;
 
-      inputSampleR = i2sCodec.readSample(i, 0);
-      inputSampleL = i2sCodec.readSample(i, 1);
+      inputSampleR = out[0];
+      inputSampleL = out[1];
 
       if (Compressor) {
-        inputSampleR *= InputLevelLinear;
-        inputSampleL *= InputLevelLinear;
-
         for (int j = 0; j < NumBands; j++) {
           Band_R[j] = dspBAND[j].process(inputSampleR, 0);
           Band_L[j] = dspBAND[j].process(inputSampleL, 1);
@@ -381,10 +475,23 @@ void audioTask(void *pvParameters) {
         outputSampleL *= OutputLevelLinearL;
       }
 
-      i2sCodec.writeStereoSample(outputSampleR, outputSampleL, i);
+      // --- Outputs 2,3: simple level ---
+      out[2] = constrain(out[2], Clipper_Linear_n, Clipper_Linear_p);
+      out[3] = constrain(out[3], Clipper_Linear_n, Clipper_Linear_p);
+
+      if (OutMute[2]) out[2] = 0.0f;
+      else out[2] *= OutLvlLinear[2];
+
+      if (OutMute[3]) out[3] = 0.0f;
+      else out[3] *= OutLvlLinear[3];
+
+      // --- Write to both DACs ---
+      i2sCodec0.writeStereoSample(outputSampleR, outputSampleL, i);
+      i2sCodec1.writeStereoSample(out[3], out[2], i);
     }
 
-    i2sCodec.writeBlock();
+    i2sCodec0.writeBlock();
+    i2sCodec1.writeBlock();
     esp_task_wdt_reset();
   }
 }

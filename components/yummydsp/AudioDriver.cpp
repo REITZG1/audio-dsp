@@ -19,6 +19,7 @@ AudioDriver::AudioDriver() {
   fs = 48000;
   chCount = 2;
   enablePin = -1;
+  mclkPin = -1;
   i2sReadBuffer = NULL;
   i2sWriteBuffer = NULL;
 }
@@ -36,13 +37,12 @@ void AudioDriver::setI2sPort(i2s_port_t port) {
   i2sPort = port;
 }
 
-int AudioDriver::setPins(int bitClkPin, int lrClkPin, int dataOutPin, int dataInPin, int enablePin) {
+int AudioDriver::setPins(int bitClkPin, int lrClkPin, int dataOutPin, int dataInPin, int enablePin, int mclkPin) {
 #if CONFIG_IDF_TARGET_ESP32P4
-  // P4 uses i2s_std_config for pin mapping
   std_cfg.clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG((uint32_t)fs);
   std_cfg.slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO);
   std_cfg.gpio_cfg = {
-    .mclk = I2S_GPIO_UNUSED,
+    .mclk = (mclkPin >= 0) ? (gpio_num_t)mclkPin : I2S_GPIO_UNUSED,
     .bclk = (gpio_num_t)bitClkPin,
     .ws = (gpio_num_t)lrClkPin,
     .dout = (gpio_num_t)dataOutPin,
@@ -63,6 +63,7 @@ int AudioDriver::setPins(int bitClkPin, int lrClkPin, int dataOutPin, int dataIn
   i2s_set_pin(i2sPort, &pin_config);
 #endif
   this->enablePin = enablePin;
+  this->mclkPin = mclkPin;
   if (enablePin >= 0) {
     pinMode(enablePin, OUTPUT);
     digitalWrite(enablePin, HIGH);
@@ -151,10 +152,10 @@ bool AudioDriver::start() {
 }
 
 int AudioDriver::setup(int fs, int channelCount, int bitClkPin, int lrClkPin,
-                       int dataOutPin, int dataInPin, int enablePin, i2s_port_t i2sPort) {
+                       int dataOutPin, int dataInPin, int enablePin, int mclkPin, i2s_port_t i2sPort) {
   setI2sPort(i2sPort);
   setFormat(fs, channelCount);
-  setPins(bitClkPin, lrClkPin, dataOutPin, dataInPin, enablePin);
+  setPins(bitClkPin, lrClkPin, dataOutPin, dataInPin, enablePin, mclkPin);
   if (!start()) return -1;
   return 0;
 }

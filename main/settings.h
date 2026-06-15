@@ -20,7 +20,7 @@
 #define I2S_COMM_FORMAT_I2S_MSB ((i2s_comm_format_t)2)
 #endif
 
-const String VERSION = "1.0.0.1 2025/06/14 P4";
+const String VERSION = "1.0.0.2 2025/06/15 P4-matrix4x4";
 #define CONFIG_TAG 124
 
 //#define SERIAL_LOG 1
@@ -117,16 +117,29 @@ const int FILTER_FREQ[N_BAND][N_FREQ] = {
 
 // I2S Basic Settings
 const int SampleRateFreq = 48000;
-const int channelCount = 2;
+const int channelCount = 2; // channels per I2S port (stereo)
 
-// ESP32-P4 I2S Pinout (typical)
-// I2S0 Interface (Use these or adapt to your board)
-#define I2S_BCK_PIN       5   // I2S0_BCK
-#define I2S_LRCLK_PIN     6   // I2S0_LRCK
-#define I2S_DOUT_PIN      7   // I2S0_DOUT (DAC data out)
-#define I2S_DIN_PIN       4   // I2S0_DIN  (ADC data in)
-#define CODEC_ENABLE_PIN  8   // Codec power / enable
-#define CLOCK_OUT_PIN     21  // Optional MCLK output
+// Channel configuration
+const int NUM_IN_CH = 4;   // total input channels (2× PCM1808 stereo)
+const int NUM_OUT_CH = 4;  // total output channels (2× PCM5102 stereo)
+
+// ESP32-P4 I2S Pinout
+// I2S0 — PCM1808 #1 (ADC) + PCM5102 #1 (DAC), share BCK/LRCK
+#define I2S_BCK_PIN       5   // shared BCK
+#define I2S_LRCLK_PIN     6   // shared LRCK
+#define I2S_DOUT_PIN      7   // DOUT → PCM5102 #1 DIN
+#define I2S_DIN_PIN       4   // DIN  ← PCM1808 #1 DOUT
+#define I2S0_MCLK_PIN     21  // optional MCLK output
+#define CODEC_ENABLE_PIN  8   // shared enable pin
+
+// I2S1 — PCM1808 #2 (ADC) + PCM5102 #2 (DAC)
+// Note: avoid GPIO 18-23 if SDIO to C6 is in use
+#define I2S1_BCK_PIN      15
+#define I2S1_LRCLK_PIN    16
+#define I2S1_DOUT_PIN     17  // DOUT → PCM5102 #2 DIN
+#define I2S1_DIN_PIN      10  // DIN  ← PCM1808 #2 DOUT
+#define I2S1_ENABLE_PIN   9
+#define I2S1_MCLK_PIN     -1  // unused (use internal PLL)
 
 // WDT
 #define WDT_TIMEOUT 10

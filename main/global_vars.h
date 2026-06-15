@@ -47,7 +47,8 @@ extern float Post_Emphasis_Linear[MAX_NUM_BANDS];
 extern float Clipper_Linear_p;
 extern float Clipper_Linear_n;
 
-extern AudioDriver i2sCodec;
+extern AudioDriver i2sCodec0;
+extern AudioDriver i2sCodec1;
 extern DualCompressor comp_st[MAX_NUM_BANDS];
 extern DualCompressor limiter_st;
 extern YummyDSP dspBAND[MAX_NUM_BANDS];
@@ -71,6 +72,15 @@ extern float inputSampleR;
 extern float inputSampleL;
 extern float outputSampleR;
 extern float outputSampleL;
+
+// 4-in / 4-out matrix mixer
+extern float InTrim[NUM_IN_CH];
+extern bool InMute[NUM_IN_CH];
+extern float InTrimLinear[NUM_IN_CH];
+extern float RouteGain[NUM_OUT_CH][NUM_IN_CH];
+extern float OutLvl[NUM_OUT_CH];
+extern bool OutMute[NUM_OUT_CH];
+extern float OutLvlLinear[NUM_OUT_CH];
 
 void init_filters();
 void commitConfig();

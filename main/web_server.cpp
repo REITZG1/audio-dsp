@@ -18,21 +18,26 @@ static const char* HTML_INDEX = R"rawliteral(
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Audio Mixer</title>
 <style>
-body{font-family:sans-serif;margin:20px;background:#1a1a2e;color:#eee}
-h1{color:#e94560}
-.section{background:#16213e;padding:15px;margin:10px 0;border-radius:8px}
-.section h2{margin:0 0 10px 0;color:#0f3460;font-size:16px}
-.row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #1a1a2e}
-.row label{flex:1}
-.row .val{text-align:right;margin:0 10px;min-width:40px}
-input[type=range]{flex:2;height:4px;accent-color:#e94560}
-button{background:#e94560;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;margin:2px}
+body{font-family:sans-serif;margin:10px;background:#1a1a2e;color:#eee}
+h1{color:#e94560;font-size:20px;margin:0 0 5px 0}
+.section{background:#16213e;padding:10px;margin:6px 0;border-radius:6px}
+.section h2{margin:0 0 6px 0;color:#0f3460;font-size:14px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #1a1a2e}
+.row label{flex:1;font-size:13px}
+.row .val{text-align:right;margin:0 6px;min-width:35px;font-size:12px}
+input[type=range]{flex:2;height:3px;accent-color:#e94560}
+button{background:#e94560;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;margin:1px;font-size:12px}
 button.off{background:#555}
-.status{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px}
+.status{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
 .status.on{background:#0f0}
 .status.off{background:#f00}
+.matrix{display:grid;grid-template-columns:auto repeat(4,1fr);gap:3px;font-size:12px;margin-top:5px}
+.matrix>div{padding:3px;text-align:center}
+.matrix input[type=range]{width:100%;height:3px}
+.matrix .hdr{font-weight:bold;color:#e94560}
+.chname{font-size:11px;color:#aaa;margin-right:4px}
 </style></head><body>
-<h1>DSP Audio Mixer</h1>
+<h1>4-in / 4-out Matrix Mixer</h1>
 <div id="status"></div>
 <script>
 let state={};
@@ -41,48 +46,90 @@ function updateStatus(){
   state=d;let h='';
   h+='<div class="section"><h2>System</h2>';
   h+='<div class="row"><label>Sample Rate</label><span>'+d.sr+' Hz</span></div>';
-  h+='<div class="row"><label>Channels</label><span>'+d.ch+'</span></div>';
+  h+='<div class="row"><label>'+d.inch+' inputs / '+d.outch+' outputs</label><span></span></div>';
   h+='<div class="row"><label>WiFi</label><span class="status '+(d.wifi?'on':'off')+'"></span><span>'+d.ip+'</span></div>';
   h+='<div class="row"><label>Mute</label><button id="btnMute" class="'+(d.mute?'':'off')+'" onclick="toggleMute()">'+(d.mute?'MUTED':'Active')+'</button></div>';
   h+='</div>';
-  h+='<div class="section"><h2>Volume & Balance</h2>';
-  h+=slider('Input Level','il',d.il,-50,90,1);
-  h+=slider('Output Level','ol',d.ol,-70,10,1);
-  h+=slider('Balance','bal',d.bal,0,100,1);
-  h+=slider('Clipper','clip',d.clip,-40,40,1);
+  h+='<div class="section"><h2>Volume</h2>';
+  h+=slider('Input Level','il',d.il,-50,90,1,'dB');
+  h+=slider('Output Lvl (Out 0/1)','ol',d.ol,-70,10,1,'dB');
+  h+=slider('Balance','bal',d.bal,0,100,1,'%');
+  h+=slider('Clipper','clip',d.clip,-40,40,1,'dB');
   h+='</div>';
-  h+='<div class="section"><h2>Processing</h2>';
-  h+=slider('Pre Emphasis','pre',d.pre,-30,30,1);
-  h+=slider('Post Emphasis','post',d.post,-30,30,1);
-  h+=slider('Echo','echo',d.echo,0,1,.01);
-  h+=slider('Q Factor','qf',d.qf,.1,10,.1);
-  h+=slider('Step By','step',d.step,-90,-3,1);
+  // Input section
+  h+='<div class="section"><h2>Inputs</h2>';
+  for(let i=0;i<d.inTrim.length;i++){
+   h+='<div class="row">';
+   h+='<label><span class="chname">IN'+(i+1)+'</span>Trim</label>';
+   h+='<input type="range" min="-50" max="90" step="1" value="'+d.inTrim[i]+'" oninput="setVal(\'inTrim'+i+'\',this.value)" onchange="setVal(\'inTrim'+i+'\',this.value)">';
+   h+='<span class="val">'+d.inTrim[i]+' dB</span>';
+   h+='<button class="'+(d.inMute[i]?'':'off')+'" onclick="setVal(\'inMute'+i+'\','+(d.inMute[i]?0:1)+')">'+(d.inMute[i]?'M':' ') +'</button>';
+   h+='</div>';
+  }
+  h+='</div>';
+  // Matrix section
+  h+='<div class="section"><h2>Routing Matrix</h2><div class="matrix">';
+  h+='<div></div>';
+  for(let i=0;i<d.inTrim.length;i++) h+='<div class="hdr">IN'+(i+1)+'</div>';
+  for(let o=0;o<d.route.length;o++){
+   h+='<div class="hdr">OUT'+(o+1)+'</div>';
+   for(let i=0;i<d.route[o].length;i++){
+    let r=d.route[o][i];
+    h+='<div><input type="range" min="0" max="1" step="0.01" value="'+r+'" oninput="setRoute('+o+','+i+',this.value)" onchange="setRoute('+o+','+i+',this.value)"><br><span style="font-size:10px">'+Number(r).toFixed(2)+'</span></div>';
+   }
+  }
+  h+='</div></div>';
+  // Output section
+  h+='<div class="section"><h2>Outputs</h2>';
+  for(let o=0;o<d.outLvl.length;o++){
+   h+='<div class="row">';
+   h+='<label><span class="chname">OUT'+(o+1)+(o<2?' (DSP)':'')+'</span>Level</label>';
+   h+='<input type="range" min="-70" max="10" step="1" value="'+d.outLvl[o]+'" oninput="setVal(\'outLvl'+o+'\',this.value)" onchange="setVal(\'outLvl'+o+'\',this.value)">';
+   h+='<span class="val">'+d.outLvl[o]+' dB</span>';
+   h+='<button class="'+(d.outMute[o]?'':'off')+'" onclick="setVal(\'outMute'+o+'\','+(d.outMute[o]?0:1)+')">'+(d.outMute[o]?'M':' ') +'</button>';
+   h+='</div>';
+  }
+  h+='</div>';
+  // Processing section
+  h+='<div class="section"><h2>DSP (Out 0/1)</h2>';
+  h+=slider('Pre Emphasis','pre',d.pre,-30,30,1,'dB');
+  h+=slider('Post Emphasis','post',d.post,-30,30,1,'dB');
+  h+=slider('Echo','echo',d.echo,0,1,.01,'');
+  h+=slider('Q Factor','qf',d.qf,.1,10,.1,'');
+  h+=slider('Step By','step',d.step,-90,-3,1,'dB');
   h+='<div class="row"><label>Compressor</label><button id="btnComp" class="'+(d.comp?'':'off')+'" onclick="toggleComp()">'+(d.comp?'ON':'OFF')+'</button></div>';
   h+='<div class="row"><label>Band Sync</label><button id="btnSync" class="'+(d.sync?'':'off')+'" onclick="toggleSync()">'+(d.sync?'ON':'OFF')+'</button></div>';
   h+='<div class="row"><label>Limiter</label><button id="btnLim" class="'+(d.res1?'':'off')+'" onclick="toggleLim()">'+(d.res1?'ON':'OFF')+'</button></div>';
   h+='</div>';
   h+='<div class="section"><h2>Bands ('+d.nb+' bands)</h2>';
   for(let i=0;i<d.nb;i++){
-   h+=slider('Band '+(i+1)+' EQ','eq'+i,d.eq[i],-12,12,.5);
-   h+=slider('Band '+(i+1)+' Gain','gn'+i,d.gn[i],0,80,1);
-   h+=slider('Protection','prot'+i,d.prot[i],0,30,1);
+   h+=slider('Band '+(i+1)+' EQ','eq'+i,d.eq[i],-12,12,.5,'dB');
+   h+=slider('Band '+(i+1)+' Gain','gn'+i,d.gn[i],0,80,1,'dB');
+   h+=slider('Protection','prot'+i,d.prot[i],0,30,1,'dB');
   }
   h+='</div>';
   h+='<div class="section"><button onclick="saveConfig()">Save Config</button><button onclick="reboot()">Reboot</button></div>';
   document.getElementById('status').innerHTML=h;
  }).catch(()=>setTimeout(updateStatus,2000));
 }
-function slider(label,key,val,min,max,step){
- return '<div class="row"><label>'+label+'</label><input type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+val+'" oninput="setVal(\''+key+'\',this.value)" onchange="setVal(\''+key+'\',this.value)"><span class="val">'+Number(val).toFixed((step<1)?1:0)+'</span></div>';
+function slider(label,key,val,min,max,step,unit){
+ let disp=Number(val).toFixed((step<1)?1:0);
+ return '<div class="row"><label>'+label+'</label><input type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+val+'" oninput="setVal(\''+key+'\',this.value)" onchange="setVal(\''+key+'\',this.value)"><span class="val">'+disp+' '+(unit||'')+'</span></div>';
 }
 function setVal(key,val){
  if(key.startsWith('eq')){let i=parseInt(key.slice(2));fetch('/api/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:'eq',i:i,v:parseFloat(val)})});}
  else if(key.startsWith('gn')){let i=parseInt(key.slice(2));fetch('/api/set',{method:'POST',body:JSON.stringify({k:'gn',i:i,v:parseFloat(val)})});}
  else if(key.startsWith('prot')){let i=parseInt(key.slice(4));fetch('/api/set',{method:'POST',body:JSON.stringify({k:'prot',i:i,v:parseFloat(val)})});}
+ else if(key.startsWith('inTrim')){let i=parseInt(key.slice(6));fetch('/api/set',{method:'POST',body:JSON.stringify({k:'inTrim',i:i,v:parseFloat(val)})});}
+ else if(key.startsWith('inMute')){let i=parseInt(key.slice(6));fetch('/api/set',{method:'POST',body:JSON.stringify({k:'inMute',i:i,v:parseFloat(val)})});}
+ else if(key.startsWith('outLvl')){let i=parseInt(key.slice(6));fetch('/api/set',{method:'POST',body:JSON.stringify({k:'outLvl',i:i,v:parseFloat(val)})});}
+ else if(key.startsWith('outMute')){let i=parseInt(key.slice(7));fetch('/api/set',{method:'POST',body:JSON.stringify({k:'outMute',i:i,v:parseFloat(val)})});}
  else{fetch('/api/set',{method:'POST',body:JSON.stringify({k:key,v:parseFloat(val)})});}
- // Update display
  let spans=document.querySelectorAll('.val');
  spans.forEach(s=>{let p=s.parentElement;let inp=p.querySelector('input');if(inp&&inp==document.activeElement)s.textContent=Number(val).toFixed((parseFloat(inp.step)<1)?1:0);});
+}
+function setRoute(o,i,val){
+ fetch('/api/set',{method:'POST',body:JSON.stringify({k:'route',o:o,i:i,v:parseFloat(val)})});
 }
 function toggleMute(){fetch('/api/set',{method:'POST',body:JSON.stringify({k:'mute',v:state.mute?0:1})}).then(()=>updateStatus());}
 function toggleComp(){fetch('/api/set',{method:'POST',body:JSON.stringify({k:'comp',v:state.comp?0:1})}).then(()=>updateStatus());}
@@ -100,10 +147,11 @@ static esp_err_t api_status_handler(httpd_req_t *req) {
   httpd_resp_set_type(req, "application/json");
 
   // Build JSON using ArduinoJson (already in project)
-  DynamicJsonDocument doc(4096);
+  DynamicJsonDocument doc(8192);
 
   doc["sr"] = SampleRateFreq;
-  doc["ch"] = channelCount;
+  doc["inch"] = NUM_IN_CH;
+  doc["outch"] = NUM_OUT_CH;
   doc["wifi"] = true;
 
   // Get IP
@@ -146,6 +194,29 @@ static esp_err_t api_status_handler(httpd_req_t *req) {
     prot.add(Protection[i]);
   }
 
+  // Matrix mixer
+  JsonArray inTrim = doc.createNestedArray("inTrim");
+  JsonArray inMute = doc.createNestedArray("inMute");
+  for (int ch = 0; ch < NUM_IN_CH; ch++) {
+    inTrim.add(InTrim[ch]);
+    inMute.add(InMute[ch]);
+  }
+
+  JsonArray outLvl = doc.createNestedArray("outLvl");
+  JsonArray outMute = doc.createNestedArray("outMute");
+  for (int o = 0; o < NUM_OUT_CH; o++) {
+    outLvl.add(OutLvl[o]);
+    outMute.add(OutMute[o]);
+  }
+
+  JsonArray route = doc.createNestedArray("route");
+  for (int o = 0; o < NUM_OUT_CH; o++) {
+    JsonArray row = route.createNestedArray();
+    for (int i = 0; i < NUM_IN_CH; i++) {
+      row.add(RouteGain[o][i]);
+    }
+  }
+
   String output;
   serializeJson(doc, output);
 
@@ -172,11 +243,24 @@ static esp_err_t api_set_handler(httpd_req_t *req) {
   const char *k = doc["k"];
   float v = doc["v"] | 0.0f;
   int idx = doc["i"] | -1;
+  int outIdx = doc["o"] | -1;
 
   auto setBandVal = [&](float arr[], float minv, float maxv) {
     int i = idx;
     if (i >= 0 && i < ALL_NUM_BANDS) {
       arr[i] = constrain(v, minv, maxv);
+    }
+  };
+
+  auto setInVal = [&](float arr[], float minv, float maxv) {
+    if (idx >= 0 && idx < NUM_IN_CH) {
+      arr[idx] = constrain(v, minv, maxv);
+    }
+  };
+
+  auto setOutVal = [&](float arr[], float minv, float maxv) {
+    if (idx >= 0 && idx < NUM_OUT_CH) {
+      arr[idx] = constrain(v, minv, maxv);
     }
   };
 
@@ -196,6 +280,15 @@ static esp_err_t api_set_handler(httpd_req_t *req) {
   else if (strcmp(k, "eq") == 0) { setBandVal(Equalizer, MIN_EQ_BAND, MAX_EQ_BAND); }
   else if (strcmp(k, "gn") == 0) { setBandVal(Gain, MIN_GAIN, MAX_GAIN); }
   else if (strcmp(k, "prot") == 0) { setBandVal(Protection, MIN_PROTECTION, MAX_PROTECTION); }
+  else if (strcmp(k, "inTrim") == 0) { setInVal(InTrim, -50.0f, 90.0f); }
+  else if (strcmp(k, "inMute") == 0) { if (idx >= 0 && idx < NUM_IN_CH) InMute[idx] = v > 0.5f; }
+  else if (strcmp(k, "outLvl") == 0) { setOutVal(OutLvl, -70.0f, 10.0f); }
+  else if (strcmp(k, "outMute") == 0) { if (idx >= 0 && idx < NUM_OUT_CH) OutMute[idx] = v > 0.5f; }
+  else if (strcmp(k, "route") == 0) {
+    if (outIdx >= 0 && outIdx < NUM_OUT_CH && idx >= 0 && idx < NUM_IN_CH) {
+      RouteGain[outIdx][idx] = constrain(v, 0.0f, 1.0f);
+    }
+  }
 
   commitConfig();
   httpd_resp_set_type(req, "application/json");

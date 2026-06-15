@@ -33,7 +33,13 @@ enum {
   IDX_RESET_TO_DEFAULT,
   IDX_EQ_BAND,
   IDX_STATUS,
-  IDX_HELP
+  IDX_HELP,
+  // Matrix mixer
+  IDX_IN_TRIM = 22,
+  IDX_IN_MUTE,
+  IDX_ROUTE_MATRIX,
+  IDX_OUT_LVL,
+  IDX_OUT_MUTE
 };
 
 String Separator(int len) {
@@ -85,6 +91,23 @@ String getCommands() {
   msg += left(String(IDX_FILTERS_Q_FACTOR), 2) + ". Filters Q Factor:  " + String(FiltersQFactor, 3) + "\n";
   msg += left(String(IDX_SAVE), 2) + ". Save\n";
   msg += left(String(IDX_RESET_TO_DEFAULT), 2) + ". Reset to Default\n";
+  msg += "\n--- Matrix Mixer ---\n";
+  msg += left(String(IDX_IN_TRIM), 2) + ". Input Trim (enter ch 0-3):\n";
+  for (int ch = 0; ch < NUM_IN_CH; ch++)
+    msg += "   Ch" + String(ch) + " = " + String(InTrim[ch], 1) + " dB" + (InMute[ch] ? " [MUTED]" : "") + "\n";
+  msg += left(String(IDX_ROUTE_MATRIX), 2) + ". Route (enter: o i gain):\n";
+  msg += "   OUT\\IN";
+  for (int i = 0; i < NUM_IN_CH; i++) msg += "    IN" + String(i);
+  msg += "\n";
+  for (int o = 0; o < NUM_OUT_CH; o++) {
+    msg += "     OUT" + String(o);
+    for (int i = 0; i < NUM_IN_CH; i++)
+      msg += "  " + String(RouteGain[o][i], 2);
+    msg += "\n";
+  }
+  msg += left(String(IDX_OUT_LVL), 2) + ". Output Level (enter ch 0-3):\n";
+  for (int ch = 0; ch < NUM_OUT_CH; ch++)
+    msg += "   Ch" + String(ch) + " = " + String(OutLvl[ch], 1) + " dB" + (OutMute[ch] ? " [MUTED]" : "") + "\n";
   for (int i = 0; i < NumBands; i++) {
     int j = NumBands - i - 1;
     msg += String(IDX_EQ_BAND + i) + ". EQ Band(" + String(j + 1) + ") " +
@@ -109,6 +132,25 @@ void showStatus() {
   Serial.print("Post-Emphasis:"); Serial.print(PostEmphasis); Serial.println(" dB");
   Serial.print("Filters Q:    "); Serial.println(FiltersQFactor);
   Serial.print("SPIFFS:       "); Serial.println(isGoodFileSystem ? "OK" : "ERROR");
+  Serial.println("\nMatrix Mixer:");
+  Serial.print("  Inputs: ");
+  for (int ch = 0; ch < NUM_IN_CH; ch++) {
+    Serial.printf("Ch%d:%.0fdB%s ", ch, InTrim[ch], InMute[ch]?"M":"");
+  }
+  Serial.println();
+  Serial.print("  Outputs: ");
+  for (int ch = 0; ch < NUM_OUT_CH; ch++) {
+    Serial.printf("Ch%d:%.0fdB%s ", ch, OutLvl[ch], OutMute[ch]?"M":"");
+  }
+  Serial.println();
+  Serial.println("  Routing (out\\in):");
+  for (int o = 0; o < NUM_OUT_CH; o++) {
+    Serial.printf("    Out%d:", o);
+    for (int i = 0; i < NUM_IN_CH; i++) {
+      Serial.printf(" %.2f", RouteGain[o][i]);
+    }
+    Serial.println();
+  }
   Serial.println(Separator(SEP_COUNT));
 }
 
@@ -164,12 +206,105 @@ void changeIntParam(String &returned_text, const String menu_label, const int me
 
 void commandInterpreter() {
   static String lastS = "";
+  static int matrixStep = 0;  // 0=idle, 1=inTrim ch, 2=inTrim val, 3=outLvl ch, 4=outLvl val, 5=route o, 6=route i, 7=route gain
+  static int matrixCh = 0;
+  static int matrixO = 0, matrixI = 0;
   int m = MAX_NUM_BANDS;
 
   if (Serial.available()) {
     String text = Serial.readStringUntil('\n');
     text.trim();
     if (text.length() == 0) return;
+
+    // Handle matrix sub-steps
+    if (matrixStep > 0) {
+      if (matrixStep == 1) {  // waiting for input channel
+        matrixCh = text.toInt();
+        if (matrixCh < 0 || matrixCh >= NUM_IN_CH) {
+          Serial.println("Invalid channel (0-" + String(NUM_IN_CH-1) + ")");
+          matrixStep = 0;
+          return;
+        }
+        Serial.print("Enter trim for Ch" + String(matrixCh) + " [" + String(MIN_INPUT_LEVEL) + ".." + String(MAX_INPUT_LEVEL) + "] dB:");
+        matrixStep = 2;
+        return;
+      }
+      if (matrixStep == 2) {  // waiting for input trim value
+        float v = text.toFloat();
+        if (v >= MIN_INPUT_LEVEL && v <= MAX_INPUT_LEVEL) {
+          InTrim[matrixCh] = v;
+          commitConfig();
+          Serial.println("Ch" + String(matrixCh) + " trim = " + String(v, 1) + " dB");
+        } else {
+          Serial.println("Out of range");
+        }
+        matrixStep = 0;
+        lastS = "";
+        Serial.println(getCommands());
+        return;
+      }
+      if (matrixStep == 3) {  // waiting for output channel
+        matrixCh = text.toInt();
+        if (matrixCh < 0 || matrixCh >= NUM_OUT_CH) {
+          Serial.println("Invalid channel (0-" + String(NUM_OUT_CH-1) + ")");
+          matrixStep = 0;
+          return;
+        }
+        Serial.print("Enter level for Out" + String(matrixCh) + " [" + String(MIN_OUTPUT_LEVEL) + ".." + String(MAX_OUTPUT_LEVEL) + "] dB:");
+        matrixStep = 4;
+        return;
+      }
+      if (matrixStep == 4) {  // waiting for output level
+        float v = text.toFloat();
+        if (v >= MIN_OUTPUT_LEVEL && v <= MAX_OUTPUT_LEVEL) {
+          OutLvl[matrixCh] = v;
+          commitConfig();
+          Serial.println("Out" + String(matrixCh) + " level = " + String(v, 1) + " dB");
+        } else {
+          Serial.println("Out of range");
+        }
+        matrixStep = 0;
+        lastS = "";
+        Serial.println(getCommands());
+        return;
+      }
+      if (matrixStep == 5) {  // waiting for route output
+        matrixO = text.toInt();
+        if (matrixO < 0 || matrixO >= NUM_OUT_CH) {
+          Serial.println("Invalid output (0-" + String(NUM_OUT_CH-1) + ")");
+          matrixStep = 0;
+          return;
+        }
+        Serial.print("Enter input (0-" + String(NUM_IN_CH-1) + "):");
+        matrixStep = 6;
+        return;
+      }
+      if (matrixStep == 6) {  // waiting for route input
+        matrixI = text.toInt();
+        if (matrixI < 0 || matrixI >= NUM_IN_CH) {
+          Serial.println("Invalid input (0-" + String(NUM_IN_CH-1) + ")");
+          matrixStep = 0;
+          return;
+        }
+        Serial.print("Enter gain (0.0-1.0):");
+        matrixStep = 7;
+        return;
+      }
+      if (matrixStep == 7) {  // waiting for route gain
+        float v = text.toFloat();
+        if (v >= 0.0f && v <= 1.0f) {
+          RouteGain[matrixO][matrixI] = v;
+          commitConfig();
+          Serial.println("Route Out" + String(matrixO) + " <- In" + String(matrixI) + " = " + String(v, 2));
+        } else {
+          Serial.println("Out of range (0.0-1.0)");
+        }
+        matrixStep = 0;
+        lastS = "";
+        Serial.println(getCommands());
+        return;
+      }
+    }
 
     String S = text;
     if (!lastS.equals("")) S = lastS;
@@ -225,7 +360,88 @@ void commandInterpreter() {
       changeParam(lastS, "Release Time", IDX_RELEASE_TIME, text, ReleaseTime[m], MIN_RELEASE_TIME, MAX_RELEASE_TIME, "ms");
     else if (idx == IDX_FILTERS_Q_FACTOR)
       changeParam(lastS, "Filters Q Factor", IDX_FILTERS_Q_FACTOR, text, FiltersQFactor, MIN_FILTERS_Q_FACTOR, MAX_FILTERS_Q_FACTOR, "");
-    else if (idx == IDX_SAVE) {
+    else if (idx == IDX_IN_TRIM) {
+      if (text.length() > 3) {
+        // One-liner: "22 ch val"
+        int s1 = text.indexOf(' ', 3);
+        if (s1 > 0) {
+          int ch = text.substring(3, s1).toInt();
+          float v = text.substring(s1+1).toFloat();
+          if (ch >= 0 && ch < NUM_IN_CH && v >= MIN_INPUT_LEVEL && v <= MAX_INPUT_LEVEL) {
+            InTrim[ch] = v;
+            commitConfig();
+            Serial.println("Ch" + String(ch) + " trim = " + String(v, 1) + " dB");
+          } else {
+            Serial.println("Invalid ch or value");
+          }
+          lastS = "";
+        }
+      } else {
+        // Interactive
+        matrixStep = 1;
+        Serial.print("Enter input channel (0-" + String(NUM_IN_CH-1) + "):");
+      }
+    } else if (idx == IDX_IN_MUTE) {
+      if (text.length() > 3) {
+        int ch = text.substring(3).toInt();
+        if (ch >= 0 && ch < NUM_IN_CH) {
+          InMute[ch] = !InMute[ch];
+          commitConfig();
+          Serial.println("In" + String(ch) + " mute: " + String(InMute[ch] ? "ON" : "OFF"));
+        }
+      }
+      lastS = "";
+    } else if (idx == IDX_OUT_LVL) {
+      if (text.length() > 3) {
+        int s1 = text.indexOf(' ', 3);
+        if (s1 > 0) {
+          int ch = text.substring(3, s1).toInt();
+          float v = text.substring(s1+1).toFloat();
+          if (ch >= 0 && ch < NUM_OUT_CH && v >= MIN_OUTPUT_LEVEL && v <= MAX_OUTPUT_LEVEL) {
+            OutLvl[ch] = v;
+            commitConfig();
+            Serial.println("Out" + String(ch) + " level = " + String(v, 1) + " dB");
+          } else {
+            Serial.println("Invalid ch or value");
+          }
+          lastS = "";
+        }
+      } else {
+        matrixStep = 3;
+        Serial.print("Enter output channel (0-" + String(NUM_OUT_CH-1) + "):");
+      }
+    } else if (idx == IDX_OUT_MUTE) {
+      if (text.length() > 3) {
+        int ch = text.substring(3).toInt();
+        if (ch >= 0 && ch < NUM_OUT_CH) {
+          OutMute[ch] = !OutMute[ch];
+          commitConfig();
+          Serial.println("Out" + String(ch) + " mute: " + String(OutMute[ch] ? "ON" : "OFF"));
+        }
+      }
+      lastS = "";
+    } else if (idx == IDX_ROUTE_MATRIX) {
+      // One-liner: "24 o i gain"
+      int s1 = text.indexOf(' ', 3);
+      int s2 = text.indexOf(' ', s1 + 1);
+      if (s1 > 0 && s2 > 0) {
+        int o = text.substring(3, s1).toInt();
+        int i = text.substring(s1 + 1, s2).toInt();
+        float v = text.substring(s2 + 1).toFloat();
+        if (o >= 0 && o < NUM_OUT_CH && i >= 0 && i < NUM_IN_CH && v >= 0.0f && v <= 1.0f) {
+          RouteGain[o][i] = v;
+          commitConfig();
+          Serial.println("Route Out" + String(o) + " <- In" + String(i) + " = " + String(v, 2));
+        } else {
+          Serial.println("Invalid params (o i gain)");
+        }
+        lastS = "";
+      } else {
+        // Interactive
+        matrixStep = 5;
+        Serial.print("Enter output (0-" + String(NUM_OUT_CH-1) + "):");
+      }
+    } else if (idx == IDX_SAVE) {
       lastS = "";
       if (saveConfig()) Serial.println(TEXT_SAVED);
       else Serial.println("Error saving file!");
